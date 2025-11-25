@@ -5,11 +5,12 @@ import random
 import string
 import logging
 import requests
-import threading # <-- اضافه شد
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from flask import Flask # <-- اضافه شد
+# اضافه کردن ایمپورت های مورد نیاز برای اجرای Flask
+from flask import Flask 
+import threading # اگر نیاز به اجرای همزمان Flask و Bot دارید
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
@@ -233,18 +234,25 @@ def get_proxies() -> List[str]:
     proxy_cache = CacheItem(fresh, now)
     return fresh
 
+# --- اصلاح شده برای کپی یکجا ---
 def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
-    head = "*لیست 10 کانفینگ 🔻*\n\n"
+    head = "*لیست کانفیگ‌های V2Ray 🔻*\n\n"
     body_lines = []
-    # NOTE: 'note' is undefined in this scope, but was present in the original user code provided in context. 
-    # Assuming it's a placeholder or an intended variable that should be removed if not defined elsewhere.
-    # For now, I'll remove it as it caused an error in the previous context.
+    
     for i, cfg in enumerate(configs[:limit], start=1):
         safe = escape_markdown(cfg)
-        body_lines.append(f"`{i}. {safe}`")
+        body_lines.append(f"{i}. {safe}")
+        
     body = "\n".join(body_lines)
-    return head + body # + note <- Removed undefined variable
+    
+    # کل محتوا در یک بلوک کد قرار می‌گیرد
+    full_content = f"`{body}`"
+    
+    note_text = "\n\n*نکته*: کل متن داخل بلوک بالا (شامل شماره‌ها و کانفیگ‌ها) با یک کلیک کپی می‌شود. لطفاً بعد از کپی، شماره‌ها را در صورت نیاز حذف کنید."
+    
+    return head + full_content + note_text
 
+# --- اصلاح شده برای بستن رشته ناتمام ---
 def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols: int = GRID_COLS) -> str:
     head = "*Proxy List 📗*\n\n"
     intro = (
@@ -262,7 +270,7 @@ def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols
     if row:
         rows.append("  ".join(row))
     body = "\n".join(rows)
-    footer = "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن."
+    footer = "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن." # بسته شد
     return head + intro + body + footer
 
 @bot.message_handler(commands=['start'])
@@ -347,12 +355,9 @@ def fallback(message):
     ).format(pipe=PIPE)
     bot.send_message(message.chat.id, txt)
 
-# --- New Runner Logic for Render ---
-
-def run_bot():
-    logger.info("Bot Polling Started (Daemon Thread)")
+def run_bot(): # تغییر نام تابع برای جلوگیری از تداخل با تابع main()
+    logger.info("Bot started")
     try:
-        # skip_pending=True is crucial for deployment environments
         bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=25)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
@@ -360,27 +365,18 @@ def run_bot():
         logger.exception(f"Polling error: {e}")
         time.sleep(2)
 
-def run_flask():
-    # Render automatically sets the PORT environment variable
-    port = int(os.environ.get('PORT', 5000))
-    logger.info(f"Flask Server starting on port {port}")
-    app.run(host="0.0.0.0", port=port)
-
-# Flask App Setup (Must be after all imports)
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return "Bot is running successfully on Render!"
+    return "Hello, Render!"
 
 if __name__ == "__main__":
-    logger.info("Starting Application Threads...")
+    port = int(os.environ.get('PORT', 5000))
     
-    # 1. Start the Bot Polling in a daemon thread
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    # اجرای ربات در یک Thread جداگانه
+    bot_thread = threading.Thread(target=run_bot)
     bot_thread.start()
-    logger.info("Bot Thread started.")
     
-    # 2. Run Flask in the main thread to keep the process alive
-    # This satisfies Render's requirement to listen on the dynamic PORT
-    run_flask()
+    # اجرای Flask در Thread اصلی
+    app.run(host="0.0.0.0", port=port)
