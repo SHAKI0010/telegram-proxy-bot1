@@ -8,7 +8,7 @@ import requests
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import threading # اضافه شد برای اجرای همزمان
+import threading 
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
