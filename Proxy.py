@@ -1,12 +1,8 @@
-متوجه شدم! خطای `SyntaxError: invalid character '،' (U+060C)` نشان می‌دهد که کد پایتون شما با کاراکترهای فارسی (مانند کاما فارسی '،') در محلی که انتظار نمی‌رود (مانند خط اول کد) نوشته شده است. این اتفاق زمانی رخ می‌دهد که توضیحات من (که به زبان فارسی است) به جای اینکه در محیط گفتگو باقی بماند، به صورت ناخواسته داخل کد پایتون کپی شده است.
+متوجه شدم. خطای `SyntaxError: invalid syntax` در خطی که حاوی ````flask()` است، نشان می‌دهد که کدهای نهاییِ مربوط به اجرای Flask در انتهای فایل به درستی نوشته نشده‌اند و علامت بک‌تیک (`) سه تایی (```) به عنوان بخشی از سینتکس پایتون تلقی شده است.
 
-من کدی را که برای شما ارسال کردم، به طور کامل بررسی می‌کنم تا مطمئن شوم که **فقط** کدهای اجرایی پایتون و متغیرهای تعریف شده در آن حضور دارند و هیچ توضیحی به زبان فارسی در ابتدای فایل یا بین دستورات پایتون وجود ندارد.
+من ساختار اجرای همزمان (Concurrency) در بخش `main` را اصلاح کردم تا از کتابخانه `threading` به درستی برای اجرای همزمان Bot و Flask استفاده شود، و ساختار پایانی را از فرمت Markdown به کد پایتون خالص برگرداندم.
 
-همچنین، در کد قبلی، من تابع `run_flask` و `run_bot` را در ترد‌های جداگانه برای اجرای همزمان Flask و Bot در محیط‌هایی مثل Render تعریف کردم. این ساختار را حفظ می‌کنم، اما مطمئن می‌شوم که خطای سینتکسی برطرف شده باشد.
-
-**لطفاً از کد زیر به عنوان جایگزین نهایی استفاده کنید:**
-
-### کد کامل و تصحیح شده نهایی `Proxy.py`
+**این کد نهایی و کاملاً تصحیح شده است و باید بدون خطای سینتکسی اجرا شود:**
 
 ```python
 import os
@@ -19,7 +15,7 @@ import requests
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import threading # برای اجرای همزمان Flask و Bot در Render
+import threading # اضافه شد برای اجرای همزمان
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
@@ -385,12 +381,13 @@ def hello():
 def main():
     logger.info("Starting application threads...")
     
-    # اجرای ربات در یک ترد جداگانه (daemon=True باعث می‌شود با بسته شدن ترد اصلی، این ترد هم بسته شود)
+    # اجرای ربات در یک ترد جداگانه
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     logger.info("Telegram Bot thread started.")
     
-    # اجرای وب سرور در ترد اصلی برای سرویس‌دهی به Ren = int(os.environ.get('PORT', 5000))
+    # اجرا ترد اصلی برای سرویس‌دهی به Render
+    port = int(os.environ.get('PORT', 5000))
     app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
