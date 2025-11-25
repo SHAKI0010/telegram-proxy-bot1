@@ -262,7 +262,8 @@ def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols
     if row:
         rows.append("  ".join(row))
     body = "\n".join(rows)
-    footer = "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن."
+    footer = "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن 
+    نکته*: کل متن داخل بلوک بالا (شامل شماره‌ها و کانفیگ‌ها) با یک کلیک کپی می‌شود. لطفاً بعد از کپی، شماره‌ها را در صورت نیاز حذف کنید."
     return head + intro + body + footer
 
 @bot.message_handler(commands=['start'])
