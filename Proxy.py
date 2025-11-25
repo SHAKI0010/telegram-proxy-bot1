@@ -1,3 +1,14 @@
+متوجه شدم! خطای `SyntaxError: invalid character '،' (U+060C)` نشان می‌دهد که کد پایتون شما با کاراکترهای فارسی (مانند کاما فارسی '،') در محلی که انتظار نمی‌رود (مانند خط اول کد) نوشته شده است. این اتفاق زمانی رخ می‌دهد که توضیحات من (که به زبان فارسی است) به جای اینکه در محیط گفتگو باقی بماند، به صورت ناخواسته داخل کد پایتون کپی شده است.
+
+من کدی را که برای شما ارسال کردم، به طور کامل بررسی می‌کنم تا مطمئن شوم که **فقط** کدهای اجرایی پایتون و متغیرهای تعریف شده در آن حضور دارند و هیچ توضیحی به زبان فارسی در ابتدای فایل یا بین دستورات پایتون وجود ندارد.
+
+همچنین، در کد قبلی، من تابع `run_flask` و `run_bot` را در ترد‌های جداگانه برای اجرای همزمان Flask و Bot در محیط‌هایی مثل Render تعریف کردم. این ساختار را حفظ می‌کنم، اما مطمئن می‌شوم که خطای سینتکسی برطرف شده باشد.
+
+**لطفاً از کد زیر به عنوان جایگزین نهایی استفاده کنید:**
+
+### کد کامل و تصحیح شده نهایی `Proxy.py`
+
+```python
 import os
 import time
 import json
@@ -8,8 +19,7 @@ import requests
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import threading # اضافه شده برای اجرای همزمان
-from flask import Flask # اضافه شده برای اجرای همزمان
+import threading # برای اجرای همزمان Flask و Bot در Render
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
@@ -84,9 +94,7 @@ def safe_edit_or_send(chat_id: int, message_id: int, text: str, reply_markup=Non
         )
     except Exception as e:
         logger.warning(f"edit_message_text failed, fallback send. Error: {e}")
-        # اگر ویرایش موفق نشد، ارسال معمولی انجام می‌شود
         bot.send_message(chat_id, chunks[0], reply_markup=reply_markup)
-    # ارسال بقیه تکه‌ها اگر وجود داشته باشد
     for extra in chunks[1:]:
         bot.send_message(chat_id, extra)
 
@@ -235,7 +243,6 @@ def get_proxies() -> List[str]:
     proxy_cache = CacheItem(fresh, now)
     return fresh
 
-# ******************* تغییرات اعمال شده در تابع زیر *******************
 def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
     head = "*لیست {limit} کانفینگ 🔻*\n\n".format(limit=limit)
     body_lines = []
@@ -245,10 +252,10 @@ def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
     
     full_content = head + "\n".join(body_lines)
     
-    # افزودن متن بازگشت
+    # متن بازگشت
     return_text = "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن."
     
-    # افزودن نکته درخواستی (نقل قول شده)
+    # نکته درخواستی (نقل قول شده)
     note_text = (
         "\n\n*نکته*: کل متن داخل بلوک بالا (شامل شماره‌ها و کانفیگ‌ها) با یک کلیک کپی می‌شود. "
         "لطفاً بعد از کپی، شماره‌ها را در صورت نیاز حذف کنید."
@@ -256,7 +263,6 @@ def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
     
     return full_content + return_text + note_text
 
-# ******************* تغییرات اعمال شده در تابع زیر *******************
 def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols: int = GRID_COLS) -> str:
     head = "*Proxy List 📗*\n\n"
     intro = (
@@ -359,42 +365,35 @@ def fallback(message):
     ).format(pipe=PIPE)
     bot.send_message(message.chat.id, txt)
 
-# --- مدیریت اجرای ربات و وب سرور ---
-
 def run_bot():
     logger.info("Bot starting polling...")
     try:
-        # اگر polling با خطا مواجه شود، مجدداً تلاش می‌کند
         bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=25)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user (KeyboardInterrupt)")
     except Exception as e:
         logger.exception(f"Polling error: {e}")
         time.sleep(2)
-        # به دلیل استفاده از thread، می‌توانستیم اینجا یک ری‌استارت نرم داشته باشیم
-        # اما برای سادگی، صرفاً لاگ می‌شود.
 
-def run_flask():
-    app = Flask(__name__)
+from flask import Flask
+app = Flask(__name__)
 
-    @app.route('/')
-    def hello():
-        return "Hello, Render! Bot is running in background."
+@app.route('/')
+def hello():
+    return "Hello, Render! Bot is running in background."
 
-    port = int(os.environ.get('PORT', 5000))
-    # این خط برای اجرای در محیط‌هایی مانند Render که نیاز به سرویس دهی HTTP دارند
-    app.run(host="0.0.0.0", port=port)
-
-if __name__ == "__main__":
+def main():
     logger.info("Starting application threads...")
     
-    # اجرای ربات در یک ترد جداگانه
+    # اجرای ربات در یک ترد جداگانه (daemon=True باعث می‌شود با بسته شدن ترد اصلی، این ترد هم بسته شود)
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     logger.info("Telegram Bot thread started.")
     
-    # اجرای وب سرور در ترد اصلی یا ترد دیگر (به عنوان نقطه ورود اصلی)
-    # در محیط‌هایی مانند Render، سرور در ترد اصلی اجرا شود.
-    run_flask()
+    # اجرای وب سرور در ترد اصلی برای سرویس‌دهی به Ren = int(os.environ.get('PORT', 5000))
+    app.run(host="0.0.0.0", port=port)
 
-```flask()
+if __name__ == "__main__":
+    main()
+```  main()
+```
