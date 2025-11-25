@@ -5,14 +5,11 @@ import random
 import string
 import logging
 import requests
+import threading # <-- اضافه شد
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-# === Import Flask and Threading here for correctness ===
-from flask import Flask
-import threading
-# ======================================================
+from flask import Flask # <-- اضافه شد
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
@@ -239,11 +236,14 @@ def get_proxies() -> List[str]:
 def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
     head = "*لیست 10 کانفینگ 🔻*\n\n"
     body_lines = []
+    # NOTE: 'note' is undefined in this scope, but was present in the original user code provided in context. 
+    # Assuming it's a placeholder or an intended variable that should be removed if not defined elsewhere.
+    # For now, I'll remove it as it caused an error in the previous context.
     for i, cfg in enumerate(configs[:limit], start=1):
         safe = escape_markdown(cfg)
         body_lines.append(f"`{i}. {safe}`")
     body = "\n".join(body_lines)
-    return head + body + "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن." # NOTE: Fixed missing note here
+    return head + body # + note <- Removed undefined variable
 
 def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols: int = GRID_COLS) -> str:
     head = "*Proxy List 📗*\n\n"
@@ -347,32 +347,40 @@ def fallback(message):
     ).format(pipe=PIPE)
     bot.send_message(message.chat.id, txt)
 
-
-# ======== RUNNER FOR RENDER (Flask + Bot Threading) ========
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+# --- New Runner Logic for Render ---
 
 def run_bot():
-    # The bot polling logic uses bot, logger which are defined globally above
-    logger.info("Starting Telegram bot polling...")
+    logger.info("Bot Polling Started (Daemon Thread)")
     try:
+        # skip_pending=True is crucial for deployment environments
         bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=25)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
     except Exception as e:
-        logger.exception(f"Bot polling failed: {e}")
+        logger.exception(f"Polling error: {e}")
+        time.sleep(2)
+
+def run_flask():
+    # Render automatically sets the PORT environment variable
+    port = int(os.environ.get('PORT', 5000))
+    logger.info(f"Flask Server starting on port {port}")
+    app.run(host="0.0.0.0", port=port)
+
+# Flask App Setup (Must be after all imports)
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return "Bot is running successfully on Render!"
 
 if __name__ == "__main__":
-    # Initialize Flask App
-    app = Flask(__name__)
+    logger.info("Starting Application Threads...")
     
-    @app.route('/')
-    def home():
-        return "✅ Bot is running and Polling started!", 200
-
-    # Start Bot polling in a separate thread
-    threading.Thread(target=run_bot, daemon=True).start()
+    # 1. Start the Bot Polling in a daemon thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    logger.info("Bot Thread started.")
     
-    # Run Flask web server (required by Render for web services)
+    # 2. Run Flask in the main thread to keep the process alive
+    # This satisfies Render's requirement to listen on the dynamic PORT
     run_flask()
-# ======================================================
