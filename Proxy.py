@@ -1,4 +1,3 @@
-
 import os
 import time
 import json
@@ -9,6 +8,11 @@ import requests
 from typing import List, Dict, Optional
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# === Import Flask and Threading here for correctness ===
+from flask import Flask
+import threading
+# ======================================================
 
 TOKEN = os.getenv("BOT_TOKEN", "8477116669:AAGmj-43ABL69_zxLLqetulr2T_rKxBii4A")
 GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/GODSHAKI")
@@ -239,7 +243,7 @@ def format_v2ray_list(configs: List[str], limit: int = V2RAY_SHOW_LIMIT) -> str:
         safe = escape_markdown(cfg)
         body_lines.append(f"`{i}. {safe}`")
     body = "\n".join(body_lines)
-    return head + body + note
+    return head + body + "\n\nبرای بازگشت از دکمه «بازگشت» پایین استفاده کن." # NOTE: Fixed missing note here
 
 def format_proxy_grid_text(links: List[str], limit: int = PROXY_SHOW_LIMIT, cols: int = GRID_COLS) -> str:
     head = "*Proxy List 📗*\n\n"
@@ -343,41 +347,32 @@ def fallback(message):
     ).format(pipe=PIPE)
     bot.send_message(message.chat.id, txt)
 
-def main():
-    logger.info("Bot started")
-    try:
-        bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=25)
-    except KeyboardInterrupt:
-        logger.info("Bot stopped by user")
-    except Exception as e:
-        logger.exception(f"Polling error: {e}")
-        time.sleep(2)
-# ======== Flask + Bot Runner for Render ========
 
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "✅ Bot is running correctly on Render!", 200
-
+# ======== RUNNER FOR RENDER (Flask + Bot Threading) ========
 
 def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 def run_bot():
-    # اجرای polling برای ربات تلگرام
-    from Proxy import bot, logger  # import از همین فایل
-    logger.info("Starting Telegram bot...")
+    # The bot polling logic uses bot, logger which are defined globally above
+    logger.info("Starting Telegram bot polling...")
     try:
         bot.infinity_polling(skip_pending=True, timeout=20, long_polling_timeout=25)
     except Exception as e:
         logger.exception(f"Bot polling failed: {e}")
 
-
 if __name__ == "__main__":
-    # اجرای همزمان Flask و ربات
-    threading.Thread(target=run_bot, daemon=True).start()
-    run_flask()
+    # Initialize Flask App
+    app = Flask(__name__)
+    
+    @app.route('/')
+    def home():
+        return "✅ Bot is running and Polling started!", 200
 
+    # Start Bot polling in a separate thread
+    threading.Thread(target=run_bot, daemon=True).start()
+    
+    # Run Flask web server (required by Render for web services)
+    run_flask()
+# ======================================================
